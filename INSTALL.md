@@ -5,9 +5,9 @@
 - **reMarkable 2 running exactly OS 3.27.3.0.** This build is not compatible with other tablets or firmware versions. The installer and plugin enforce this requirement; do not bypass it.
 - Working SSH access and Vellum/XOVI on the tablet. Install reManager from its [official releases](https://github.com/rmitchellscott/reManager/releases), connect your tablet, and set up Vellum. Install `xovi` and `qt-resource-rebuilder` through its package manager before proceeding. See the [official reManager guide](https://github.com/rmitchellscott/reManager/blob/main/README.md).
 - Tablet internet access for dependency installation and API requests.
-- Your own OpenAI API key and API billing/access for the models you use. ChatGPT subscription access alone does not configure this plugin. This bundle contains no working key.
+- Your own Anthropic API key (Console) with billing for the model you use, and web search enabled for your organization in Console if you want web lookups. A Claude.ai subscription alone does not configure this plugin. This bundle contains no working key.
 
-This is a manual installation bundle, not a published reManager catalog package. The ARM plugin is already built; recipients do not need a compiler. Source and license files are included. Keep a backup of your notebooks before installing third-party extensions. Remove this plugin before upgrading firmware until the new version has been tested.
+This is a manual installation bundle, not a published reManager catalog package. **Claude port:** `bin/ink-diary.so` was built from this source with the rM2 3.27 SDK but is not yet device-tested. Rebuild with `build.sh` if you change the source. Source and license files are included. Keep a backup of your notebooks before installing third-party extensions. Remove this plugin before upgrading firmware until the new version has been tested.
 
 ## 1. Get the files and transfer them
 
@@ -50,9 +50,9 @@ For a new installation:
 sh /home/root/.config/ink-diary/configure.sh
 ```
 
-Enter your API key at the hidden prompt, then select the text/vision model. Pressing Enter at the model prompt uses `gpt-4.1-mini`. The model must support image input and Structured Outputs in the Responses API; web lookup additionally needs web-search tool support. Availability depends on your account.
+Enter your API key at the hidden prompt, then select the text/vision model. Pressing Enter at the model prompt uses `claude-sonnet-5-5`. The model must support image input and tool use; web lookup additionally needs the web search tool. Availability depends on your account.
 
-The key is stored only on your tablet in `/home/root/.config/ink-diary/config.json`, with owner-only permissions. Do not share that file or post it in troubleshooting screenshots. No key is sent to the bundle's author. Requests go directly from your tablet to OpenAI.
+The key is stored only on your tablet in `/home/root/.config/ink-diary/config.json`, with owner-only permissions. Do not share that file or post it in troubleshooting screenshots. No key is sent to the bundle's author. Requests go directly from your tablet to Anthropic.
 
 **Upgrading an existing installation:** skip this full configuration step to retain your key and preferences. Running the full configuration command replaces the settings file. To change only the text model while preserving your key and other settings, replace MODEL_NAME below with your chosen model:
 
@@ -65,8 +65,7 @@ Settings are read on each tap; configuration changes do not require a restart.
 Optional settings can be added to your existing JSON file using a private editor, retaining its api_key and model fields:
 
 - `timezone`: IANA timezone name, such as `Europe/London`. Default: `America/New_York`.
-- `image_model`: separate image-generation model. Default: `gpt-image-1.5`. A replacement must support the Images API parameters used by this plugin.
-- `demo_mode`: `true` for an offline fixed handwriting sample, `false` for normal API use. Demo mode does not test diagrams, calendars or image generation.
+- `demo_mode`: `true` for an offline fixed handwriting sample, `false` for normal API use. Demo mode does not test diagrams or calendars.
 
 After manual editing, keep the JSON valid and restrict permissions:
 
@@ -126,4 +125,4 @@ To restore this version later, verify the archive, run its installer, and restar
 
 Share this repository or a release archive made from its committed files, together with this guide. Do not create a new archive from your tablet's installed configuration or answer directories. The included `config.example.json` contains only a placeholder. API credentials, notebook content, diagnostic screenshots and generated artwork are excluded from this release.
 
-The visible notebook crop is sent to OpenAI when you tap the button. Requested image creation sends an additional story/art prompt to OpenAI. Rendering diagrams is local after transcription. See README.md for network behavior and limits, THIRD_PARTY.md for attribution, and LICENSE for redistribution terms.
+The visible notebook crop is sent to Anthropic when you tap the button. Rendering diagrams is local after transcription. See README.md for network behavior and limits, THIRD_PARTY.md for attribution, and LICENSE for redistribution terms.

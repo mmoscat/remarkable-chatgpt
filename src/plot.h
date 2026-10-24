@@ -74,13 +74,19 @@ inline DiaryAnswer decodeDiaryAnswer(const QString &raw){
 inline QJsonObject diaryAnswerFormat(){
     QJsonObject props;
     for(auto name:{"kind","text","command","expression"})props.insert(name,QJsonObject{{"type","string"}});
-    props.insert("kind",QJsonObject{{"type","string"},{"enum",QJsonArray{"text","plot","search","checklist","table","image","mermaid","venn","calendar"}}});
+    props.insert("kind",QJsonObject{{"type","string"},{"enum",QJsonArray{"text","plot","search","checklist","table","mermaid","venn","calendar"}}});
     props.insert("template",diaryTemplateSchema());
     props.insert("calendar",diaryCalendarSchema());
     props.insert("xmin",QJsonObject{{"type","number"}});props.insert("xmax",QJsonObject{{"type","number"}});
     return {{"type","json_schema"},{"name","ink_diary_answer"},{"strict",true},
         {"schema",QJsonObject{{"type","object"},{"properties",props},{"additionalProperties",false},
         {"required",QJsonArray{"kind","text","command","expression","xmin","xmax","template","calendar"}}}}};
+}
+// Claude returns the structured answer as the input of a forced tool call.
+inline QJsonObject diaryAnswerTool(){
+    return {{"name","ink_diary_answer"},
+        {"description","Return the structured answer for the handwritten notebook page."},
+        {"input_schema",diaryAnswerFormat().value("schema").toObject()}};
 }
 inline QImage renderPlot(const DiaryAnswer &a,int width,int available){
     if(available<480)throw std::runtime_error("Not enough room for graph; write near the top of a fresh page");

@@ -7,6 +7,7 @@
 #include <iostream>
 #include "../src/layout.h"
 #include "../src/response.h"
+#include "../src/plot.h"
 #include "../src/letterpaths.h"
 int main(int argc,char **argv) {
     QGuiApplication app(argc,argv);
@@ -61,10 +62,23 @@ int main(int argc,char **argv) {
         assert(bottom>=480 && bottom<550);
     }
     auto parse=[](const char *json) {return responseText(QJsonDocument::fromJson(json).object());};
-    assert(parse(R"({"status":"completed","output":[{"type":"reasoning","summary":[]},{"type":"message","content":[{"type":"output_text","text":"Hello"}]}]})")=="Hello");
-    assert(parse(R"({"status":"completed","output":[{"content":[{"type":"refusal","refusal":"Cannot help."}]}]})")=="Cannot help.");
-    for(auto invalid:{R"({"status":"incomplete","output":[]})",R"({"status":"completed","output":[]})",R"({"error":{"message":"bad key"}})"}) {
+    assert(parse(R"({"type":"message","stop_reason":"end_turn","content":[{"type":"text","text":"Hello"}]})")=="Hello");
+    assert(parse(R"({"type":"message","stop_reason":"end_turn","content":[{"type":"text","text":"Hel"},{"type":"text","text":"lo"}]})")=="Hello");
+    for(auto invalid:{R"({"type":"message","stop_reason":"max_tokens","content":[{"type":"text","text":"cut"}]})",
+                      R"({"type":"message","stop_reason":"refusal","content":[]})",
+                      R"({"type":"message","stop_reason":"pause_turn","content":[{"type":"text","text":"x"}]})",
+                      R"({"type":"message","stop_reason":"end_turn","content":[]})",
+                      R"({"type":"error","error":{"type":"authentication_error","message":"bad key"}})"}) {
         bool failed=false; try {parse(invalid);}catch(const std::runtime_error&){failed=true;} assert(failed);
+    }
+    {   // Structured answers arrive as a forced tool call; the input must round-trip into decodeDiaryAnswer.
+        auto tool=diaryToolJson(QJsonDocument::fromJson(R"({"type":"message","stop_reason":"tool_use","content":[{"type":"tool_use","name":"ink_diary_answer","input":{"kind":"text","text":"Hi","command":"hello"}}]})").object());
+        assert(decodeDiaryAnswer(tool).text=="Hi");
+        bool failed=false;
+        try {diaryToolJson(QJsonDocument::fromJson(R"({"type":"message","stop_reason":"end_turn","content":[{"type":"text","text":"no tool"}]})").object());}
+        catch(const std::runtime_error&){failed=true;}
+        assert(failed);
+        auto schema=diaryAnswerTool();assert(schema.value("name")=="ink_diary_answer");assert(schema.value("input_schema").toObject().contains("properties"));
     }
     int id=QFontDatabase::addApplicationFont("fonts/Caveat.ttf"); assert(id>=0);
     QFont font(QFontDatabase::applicationFontFamilies(id).first()); font.setPixelSize(48); font.setWeight(QFont::Medium);

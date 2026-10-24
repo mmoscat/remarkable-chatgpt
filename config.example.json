@@ -1,4 +1,4 @@
 {
-  "api_key": "REPLACE_WITH_YOUR_OPENAI_API_KEY",
-  "model": "gpt-4.1-mini"
+  "api_key": "REPLACE_WITH_YOUR_ANTHROPIC_API_KEY",
+  "model": "claude-sonnet-5-5"
 }

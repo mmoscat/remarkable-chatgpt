@@ -20,7 +20,6 @@
 #include "response.h"
 #include "plot.h"
 #include "api.h"
-#include "images.h"
 #include "diagrams.h"
 #include "webanswer.h"
 #include "markdown.h"
@@ -67,12 +66,9 @@ QString answer(const QImage &image, const QJsonObject &config, int /*lines*/) {
         "For checklists, emit one Markdown task-list item per line (- [ ]). For unlabeled checkboxes, emit one empty task-list item per line with no visible label; never put multiple checkbox symbols on a single line. Your answer is sent directly to a GitHub Markdown renderer, not shown as Markdown source. Emit tables, headings, lists and templates as actual Markdown outside code fences. Never wrap the entire answer or a Markdown table in a code block merely because the user asks for Markdown. Use code fences only for actual programming code or when the user explicitly asks to see raw Markdown source or syntax. "
         "Keep answers concise, usually under 180 words. Keep tables narrow (at most five columns). "
         "Use plain mathematical notation, not LaTeX. Do not use HTML or external image URLs in Markdown. "
-        "Do not repeat the question. Return JSON matching the supplied schema. "
+        "Do not repeat the question. Always answer by calling the ink_diary_answer tool with fields matching its schema. "
         "Use kind=text for ordinary answers; fill text with your answer, command must transcribe the latest question including context needed to understand follow-ups; expression empty, xmin=-5,xmax=5. "
-        "VISUAL ROUTING: Explicit requests to generate/draw images, illustrations, comic strips or manga panels use kind=image. "
-        "text must be a detailed standalone image-generation prompt, faithfully including the user's story, characters, requested panels and dialogue from the page. "
-        "Do not substitute a description of the picture or a Markdown image link. Do not invent unreadable story details; ask for clarification instead. "
-        "Only generate images when requested; questions ABOUT art/comics use text. Fiction set today does not require search. "
+        "VISUAL ROUTING: Generating pictures, illustrations, comic strips or manga panels is not available. If asked to draw such artwork, use kind=text, say briefly that artwork generation is unavailable, and offer a flowchart, sequence diagram, Venn diagram or written description instead. Fiction set today does not require search. "
         "DIAGRAM ROUTING: Requests to create flowcharts, Mermaid diagrams, or sequence diagrams use kind=mermaid. "
         "text is bare Mermaid source, no code fences. Supported subset ONLY: flowchart TD or graph TD, "
         "declare every node on a separate line as A[\"Label\"], B(\"Label\"), or C{\"Decision\"}; "
@@ -120,14 +116,15 @@ QString answer(const QImage &image, const QJsonObject &config, int /*lines*/) {
         "What happened this week? -> search. Never answer these from training data. "
         "Ordinary timeless questions and plot commands need no search.");
     prompt.prepend(diaryCurrentContext(QDateTime::currentDateTimeUtc(),config.value("timezone").toString("America/New_York")));
-    QJsonObject payload{{"model",model},{"store",false},{"max_output_tokens",2600},{"instructions",prompt},
-        {"input",QJsonArray{QJsonObject{{"role","user"},{"content",QJsonArray{
-            QJsonObject{{"type","input_text"},{"text","Read the latest unanswered question on this notebook page."}},
-            QJsonObject{{"type","input_image"},{"detail","high"},
-                {"image_url","data:image/png;base64," + QString::fromLatin1(png.toBase64())}}
+    QJsonObject payload{{"model",model},{"max_tokens",2600},{"system",prompt},
+        {"tools",QJsonArray{diaryAnswerTool()}},
+        {"tool_choice",QJsonObject{{"type","tool"},{"name","ink_diary_answer"}}},
+        {"messages",QJsonArray{QJsonObject{{"role","user"},{"content",QJsonArray{
+            QJsonObject{{"type","image"},{"source",QJsonObject{{"type","base64"},{"media_type","image/png"},
+                {"data",QString::fromLatin1(png.toBase64())}}}},
+            QJsonObject{{"type","text"},{"text","Read the latest unanswered question on this notebook page."}}
         }}}}}};
-    payload.insert("text",QJsonObject{{"format",diaryAnswerFormat()}});
-    return responseText(diaryApiRequest(payload,key,diaryGuard));
+    return diaryToolJson(diaryApiRequest(payload,key,diaryGuard));
 }
 
 void work() {
@@ -158,7 +155,7 @@ void work() {
         state("Thinking...");
         bool demo=config.value("demo_mode").toBool(false);
         DiaryAnswer resultAnswer;
-        if(demo) resultAnswer.text="This is a handwriting test. Live answers will work after you configure an OpenAI API key.";
+        if(demo) resultAnswer.text="This is a handwriting test. Live answers will work after you configure an Anthropic API key.";
         else resultAnswer=decodeDiaryAnswer(answer(question,config,qMin(9,available/60)));
         if(!demo)diaryRequireFreshSearch(resultAnswer);
         DiaryWebAnswer web;
@@ -171,10 +168,7 @@ void work() {
         }
         QString text=resultAnswer.text;
         QImage ink; QString renderError, renderedHtml;
-        if(resultAnswer.image) {
-            state("Generating grayscale image...");
-            ink=diaryDecodeImage(diaryApiRequest(diaryImagePayload(text,config),config.value("api_key").toString(),diaryGuard,true),width);
-        }
+        require(!resultAnswer.image,"Artwork generation is not available with Claude; try a diagram");
         runOnGuiSync([&] {
             if(resultAnswer.image)return;
             if(!resultAnswer.diagram.isEmpty()) {

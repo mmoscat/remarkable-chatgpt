@@ -1,24 +1,26 @@
-# Ink Diary 4.1 — reMarkable 2
+# Ink Diary 4.1 — reMarkable 2 (Claude port)
+
+> **Claude port.** This tree replaces the OpenAI back end with Anthropic's Messages API. See **PORT_NOTES.md** for what changed, what was dropped (artwork generation) and what is untested. The bundled `bin/ink-diary.so` was built from this source with the rM2 3.27 SDK and passes the host tests, but has not yet been tested on a device. Sections below that still mention OpenAI, `gpt-*` models or artwork generation describe the original and are superseded by PORT_NOTES.md.
 
 **Installation and configuration: [INSTALL.md](INSTALL.md).**
 
-This repository contains version 4.1 source, prebuilt ARM binaries, tests, assets, licenses and installation scripts. It contains no API credentials. Configure your own key privately on the tablet.
+This repository contains version 4.1 source (Claude port), the prebuilt config helper, tests, assets, licenses and installation scripts. It contains no API credentials. Configure your own key privately on the tablet.
 
-A ChatGPT button inside the standard notebook app. Tap it to send the visible notebook area to OpenAI over the tablet's Wi-Fi, render the answer in Caveat handwriting, and insert it beneath your writing as a single handwriting image. No companion computer is needed after setup.
+A ChatGPT button inside the standard notebook app. Tap it to send the visible notebook area to Anthropic's Claude API over the tablet's Wi-Fi, render the answer in Caveat handwriting, and insert it beneath your writing as a single handwriting image. No companion computer is needed after setup.
 
 Target: **reMarkable 2, OS 3.27.3.0**. This is a development prototype, not a published Vellum catalog package. Hardware validation is in progress; see VALIDATION.md for the actual tested state.
 
 ## Demo mode
 
-For offline testing, config.json may contain `{"demo_mode":true}`. Holding the icon shows **ChatGPT (demo)** and inserts a fixed handwriting sample below your writing without making any OpenAI request. Running `configure.sh` replaces demo mode with the real API configuration.
+For offline testing, config.json may contain `{"demo_mode":true}`. Holding the icon shows **ChatGPT (demo)** and inserts a fixed handwriting sample below your writing without making any API request. Running `configure.sh` replaces demo mode with the real API configuration.
 
 ## First use
 
-1. Configure your own OpenAI API key privately in the reManager terminal:
+1. Configure your own Anthropic API key privately in the reManager terminal:
    ```sh
    sh /home/root/.config/ink-diary/configure.sh
    ```
-   The key entry is hidden. The default model is `gpt-4.1-mini`; another image-capable Responses API model may be entered. API usage is billed to your OpenAI API account. A ChatGPT app conversation is not created.
+   The key entry is hidden. The default model is `claude-sonnet-5-5`; another vision-capable Claude model (for example `claude-haiku-5-5`, cheaper and faster) may be entered. API usage is billed to your Anthropic API account. A ChatGPT app conversation is not created.
 2. Enable Wi-Fi. Open a disposable notebook with a **blank or lightly ruled template**, in **portrait orientation**, at normal zoom.
 3. The answer image uses black handwriting independently of the selected pen.
 4. Write a short question anywhere in the visible capture area, including at the top, away from the left toolbar. Leave the lower half clear.
@@ -29,7 +31,7 @@ For offline testing, config.json may contain `{"demo_mode":true}`. Holding the i
 
 Write `Search` followed by a question to explicitly request a web lookup, for example `Search what is the screen resolution of reMarkable 2?`. Questions about current facts, news, weather, prices and schedules are also routed to search automatically by the model. Include a location when needed. Ordinary timeless questions and function plots do not normally need a lookup.
 
-The existing image-reading request transcribes/routes the question; search requests then make a second Responses API call with the hosted `web_search` tool required. The plugin checks for a completed search and citation metadata. Failed searches still produce a status message. A completed search without citation links (which can happen with weather results) now displays its answer with an explicit source-links-unavailable notice; links are never invented. Automatic routing and handwriting recognition can still make mistakes; use the explicit Search command when a lookup matters.
+The existing image-reading request transcribes/routes the question; search requests then make a second Messages API call with Anthropic's `web_search` tool enabled (up to three searches). The tool is not forced, so the plugin rejects any answer that lacks a completed search. The plugin checks for a completed search and citation metadata. Failed searches still produce a status message. A completed search without citation links (which can happen with weather results) now displays its answer with an explicit source-links-unavailable notice; links are never invented. Automatic routing and handwriting recognition can still make mistakes; use the explicit Search command when a lookup matters.
 
 Answers include numbered citations and a source list with the API-provided titles and full URLs. Sources use a smaller print font for legibility. Notebook PNGs are not clickable. Each searched answer also has a sibling `.png.html` file in `/home/root/.local/share/ink-diary/answers/` containing the same answer with clickable inline citations; copy it through reManager to read in a browser. Sources are extracted from API annotations, not invented by the model. HTML text and links are escaped.
 
@@ -55,13 +57,11 @@ Answers and plots append below existing page content, extending beyond the visib
 
 Write a request and tap the same ChatGPT icon. Examples:
 
-- `Generate a three-panel manga comic about a robot growing its first flower.`
-- `Draw a black and white illustration of the story above.`
 - `Create a Mermaid flowchart for making tea.`
-- `Create a sequence diagram of a tablet sending a question to OpenAI.`
+- `Create a sequence diagram of a tablet sending a question to Anthropic.`
 - `Create a Venn diagram comparing cats and dogs.`
 
-Artwork requests use a second OpenAI call to `/v1/images/generations`, default model `gpt-image-1.5`, medium quality, one portrait 1024×1536 PNG. The prompt includes the story transcribed from the visible page. The returned image is composited over white, scaled to notebook width and converted to actual 8-bit grayscale. Image generation can take several minutes and adds image API charges. Keep the page still until insertion; stop/page-change guards remain active. Cancellation stops the local request but cannot guarantee cancellation of server-side processing or billing. Images are appended below existing content and remain image objects, not editable ink. If the account lacks image-model access, the button reports an API error. The optional `image_model` field selects a different Images API model supporting these parameters; changing the ordinary text `model` does not change the image model. Existing API credentials are preserved.
+Artwork requests (pictures, comics, manga) are not supported in the Claude port: Claude does not generate raster images, so the plugin replies with a short notice and suggests a diagram. Flowcharts, sequence diagrams and Venn diagrams below are unaffected.
 
 Diagrams are drawn locally with 3–4 px black lines and print labels. No third-party rendering service or companion computer is used. The model produces a restricted Mermaid subset: flowcharts using TD/TB source syntax (up to 12 nodes and 24 arrows), laid out in a three-column wrapping grid, or sequence diagrams (2–5 participants and up to 20 messages). This is a native subset renderer, not the complete Mermaid JavaScript engine. Class, ER, Gantt, state diagrams, arbitrary Mermaid directives and mixed Markdown/diagram documents are not supported yet. Flowcharts support rectangular, rounded and diamond nodes, arrows and short edge labels. Labels may be quoted or unquoted; inline node declarations, chained arrows, semicolon-separated statements and implicit node references are accepted. Complex branching/loop layouts may need a simpler request.
 
@@ -104,7 +104,7 @@ Restart the UI afterwards. Your notebooks and existing Vellum packages remain. T
 
 ## Privacy and network behavior
 
-Only tapping ChatGPT starts a request. The cropped visible notebook image goes to `https://api.openai.com/v1/responses` over HTTPS with certificate verification. `store:false` is set; it is not a promise of zero service-side retention. Screenshots use a private temporary directory and are deleted on normal completion/error. Answer PNGs remain in the root-only directory `/home/root/.local/share/ink-diary/answers` because the notebook app imports them asynchronously. An app crash may leave temporary files until reboot. For requested artwork, a standalone story/art prompt is also sent to `https://api.openai.com/v1/images/generations`; that endpoint does not accept the Responses API `store` flag. Diagram rendering remains local after the initial OpenAI transcription request. Notebook content and credentials are not printed to logs. The API key is saved locally with root-only permissions.
+Only tapping ChatGPT starts a request. The cropped visible notebook image goes to `https://api.anthropic.com/v1/messages` over HTTPS with certificate verification. Retention follows your Anthropic account and organization settings. Screenshots use a private temporary directory and are deleted on normal completion/error. Answer PNGs remain in the root-only directory `/home/root/.local/share/ink-diary/answers` because the notebook app imports them asynchronously. An app crash may leave temporary files until reboot. Diagram rendering remains local after the initial transcription request. Notebook content and credentials are not printed to logs. The API key is saved locally with root-only permissions.
 
 ## Build and test
 
@@ -123,9 +123,9 @@ Output: `bin/ink-diary.so` (ARMv7). Host checks require a C++ compiler and Qt6 C
 ./test.sh
 ```
 
-The checks cover placement boundaries, Responses API JSON handling, incomplete/refusal/error cases, and actual font rendering. They do not test live network requests or physical pen injection.
+The checks cover placement boundaries, Messages API JSON handling, incomplete/refusal/error cases, and actual font rendering. They do not test live network requests or physical pen injection.
 
-Upstream provenance and licenses: THIRD_PARTY.md. API documentation: https://developers.openai.com/api/docs/guides/images-vision
+Upstream provenance and licenses: THIRD_PARTY.md. API documentation: https://docs.claude.com/en/docs/agents-and-tools/tool-use/web-search-tool
 
 Append-placement regression checks can also be run with `node tests/append.cjs`.
 
@@ -148,7 +148,7 @@ Both the notebook-reading stage and web-search stage receive the tablet's curren
 In reManager's terminal, run:
 
 ```sh
-sh /home/root/.config/ink-diary/configure.sh --model gpt-5.4
+sh /home/root/.config/ink-diary/configure.sh --model claude-haiku-5-5
 ```
 
 The `--model` option preserves the saved API key and every other configuration field. It validates the name and existing JSON, then saves atomically with owner-only permissions. No restart is needed; the next question uses the new model. This changes the model for both notebook reading and web search. Use an image-capable Responses model supporting structured outputs and hosted web search, available to your API account. Model names alone do not guarantee account access. GPT-5.4 is a compatible option; costs and latency differ from GPT-4.1 mini. Running the helper without `--model` remains the original full key/model setup flow.
